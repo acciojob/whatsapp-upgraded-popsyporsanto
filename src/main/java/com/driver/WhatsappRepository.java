@@ -1,147 +1,127 @@
 package com.driver;
 
-import org.springframework.stereotype.Repository;
+import java.util.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-
-@Repository
 public class WhatsappRepository {
+    private HashMap<String, User> userMap;
+    private HashMap<String, Group> groupMap;
+    private HashMap<Integer, Message> messageMap;
 
-    public int remove;
+    //by-default
     private HashMap<Group, List<User>> groupUserMap;
     private HashMap<Group, List<Message>> groupMessageMap;
     private HashMap<Message, User> senderMap;
     private HashMap<Group, User> adminMap;
-    private HashMap<String,User> userMobile;
+    private HashSet<String> userMobile;
     private int customGroupCount;
     private int messageId;
 
+    public int getCustomGroupCount() {
+        return customGroupCount;
+    }
+
+    public void setCustomGroupCount(int customGroupCount) {
+        this.customGroupCount = customGroupCount;
+    }
+
+    public int getMessageId() {
+        return messageId;
+    }
+
+    public void setMessageId(int messageId) {
+        this.messageId = messageId;
+    }
+
+
     public WhatsappRepository(){
+        this.userMap = new HashMap<String, User>();
+        this.groupMap =  new HashMap<String, Group>();
+        this.messageMap = new HashMap<Integer, Message>();
         this.groupMessageMap = new HashMap<Group, List<Message>>();
         this.groupUserMap = new HashMap<Group, List<User>>();
         this.senderMap = new HashMap<Message, User>();
         this.adminMap = new HashMap<Group, User>();
-        this.userMobile = new HashMap<>();
+        this.userMobile = new HashSet<>();
         this.customGroupCount = 0;
         this.messageId = 0;
     }
 
-    public String createUser(String name, String mobile) throws Exception{
-        if(!userMobile.containsKey(mobile)){
-            User user=new User(name,mobile);
-            userMobile.put(mobile,user);
-            return "SUCCESS";
+    public Optional<User> getUser(String name){
+        if(this.userMap.containsKey(name)){
+            return Optional.of(this.userMap.get(name));
         }
-        else{
-            throw new Exception("User already exists");
+        return Optional.empty();
+    }
+    public Optional<Group> getGroup(String name){
+        if(this.groupMap.containsKey(name)){
+            return Optional.of(this.groupMap.get(name));
         }
+        return Optional.empty();
+    }
+    public Optional<String> getMobile(String mobile){
+        if(this.userMobile.contains(mobile)){
+            return Optional.of(mobile);
+        }
+        return Optional.empty();
+    }
+    public Optional<User> getUserInGroup(User sender, Group group) {
+        List<User> users = this.groupUserMap.get(group);
+        for(User user : users){
+            if(user.getName().equals(sender.getName())){
+                return Optional.of(user);
+            }
+        }
+        return Optional.empty();
+    }
+    public String createUser(String name, String mobile) {
+        this.userMap.put(name, new User(name, mobile));
+        this.userMobile.add(mobile);
+        return "SUCCESS";
     }
 
-    public Group createGroup(List<User> users) {
-        int n=users.size();
-        Group group=new Group();
-        if(n==2){
-            group.setName(users.get(1).getName());
-        }
-        else{
-            group.setName("Group "+(++customGroupCount));
-        }
-        group.setNumberOfParticipants(n);
-        groupUserMap.put(group,users);
-        adminMap.put(group,users.get(0));
+    public Group createGroup(String nameOfGroup, List<User> users) {
+        //create a group
+        Group group = new Group(nameOfGroup, users.size());
+        //create group map
+        this.groupMap.put(nameOfGroup, group);
+        // put in group-users map
+        this.groupUserMap.put(group, users);
         return group;
     }
 
-    public int createMessage(String content) {
-        Message message=new Message(++messageId,content);
-        return messageId;
+    public void createAdmin(Group group, User user) {
+        // make admin
+        this.adminMap.put(group, user);
     }
 
-    public int sendMessage(Message message, User sender, Group group) throws Exception{
-        int n=0;
-        if(!(groupUserMap.containsKey(group))){
-            throw new Exception("Group does not exist");
-        }
-        else if(!(groupUserMap.get(group).contains(sender))){
-            throw new Exception("You are not allowed to send message");
-        }
-        else {
-            List<Message> messages=new ArrayList<>();
-            if(groupMessageMap.containsKey(group)) {
-                messages = groupMessageMap.get(group);
-            }
-            messages.add(message);
-            groupMessageMap.put(group,messages);
-            n=messages.size();
-            senderMap.put(message,sender);
-        }
-        return n;
-    }
+//    public void createMessage(int id, String content) {
+//        this.messageId+=1;
+//        messageMap.put(id, new Message(id, content));
+//    }
 
-    public String changeAdmin(User approver, User user, Group group) throws Exception{
-        if(!(groupUserMap.containsKey(group))){
-            throw new Exception("Group does not exist");
+    public int sendMessage(Message message, User sender, Group group) {
+        if(!this.groupMessageMap.containsKey(group)){
+            this.groupMessageMap.put(group, new ArrayList<>());
         }
-        else if(!(adminMap.get(group).equals(approver))){
-            throw new Exception("Approver does not have rights");
-        }
-        else if(!(groupUserMap.get(group).contains(user))){
-            throw new Exception("User is not a participant");
-        }
-        else{
-            adminMap.put(group,user);
-            return "SUCCESS";
-        }
-    }
-
-    public int removeUser(User user) throws Exception{
-
-        Group groupuser=new Group();
-        for(Group group:groupUserMap.keySet()){
-            List<User> userList=groupUserMap.get(group);
-            for(User users:userList){
-                if(users.equals(user)){
-                    groupuser=group;
-                    break;
-                }
-            }
-        }
-        if(groupuser.getName()==null){
-            throw new Exception("User not found");
-        }
-        else if(adminMap.get(groupuser).equals(user)){
-            throw new Exception("Cannot remove admin");
-        }
-        else {
-            List<User> users=groupUserMap.get(groupuser);
-            users.remove(user);
-            List<Message> messages1=new ArrayList<>();
-            for(Message message:senderMap.keySet()){
-                if(senderMap.get(message).equals(user)){
-                    List<Message> messages=groupMessageMap.get(groupuser);
-                    messages.remove(message);
-                    messages1.add(message);
-                }
-            }
-            for(Message message:messages1){
-                senderMap.remove(message);
-            }
-
-        }
-        String mobile=user.getMobile();
-        userMobile.remove(mobile);
-        int n=0;
-        List<User> usersingroup=groupUserMap.get(groupuser);
-        List<Message> messageList=groupMessageMap.get(groupuser);
-        n=usersingroup.size()+messageList.size()+senderMap.size();
-        return n;
+        // map message with user (sender)
+        this.senderMap.put(message,sender);
+        // add message to group
+        List<Message> messages = this.groupMessageMap.get(group);
+        messages.add(message);
+        this.groupMessageMap.put(group,messages);
+        return messages.size();
     }
 
 
-    public String findMessage(Date start, Date end, int k) throws Exception{
-        return "";
+    public Optional<User> adminInThisGroup(User approver, Group group) {
+        if(this.adminMap.get(group).equals(approver)){
+            return Optional.of(approver);
+        }
+        return Optional.empty();
     }
 
+    public String changeAdmin(User user, Group group) {
+        this.adminMap.put(group,user);
+        return "SUCCESS";
+    }
 }
