@@ -126,7 +126,7 @@ public class WhatsappRepository {
     }
 
     public void createMessage(int id, String content) {
-//        this.messageId+=1;
-//        messageMap.put(id, new Message(id, content));
+        this.messageId+=1;
+        messageMap.put(id, new Message(id, content));
     }
 }
